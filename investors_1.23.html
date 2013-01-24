@@ -1,0 +1,328 @@
+<html><head>
+    <title>Oakland Foreclosures, 2007-2011</title>
+    <script type="text/javascript" src="js/polymaps.js"></script>
+    
+    
+  
+<script src="http://code.jquery.com/jquery-1.8.3.js"></script>
+<script src="http://code.jquery.com/ui/1.10.0/jquery-ui.js"></script>
+<script type="text/javascript" src="js/jquery.tooltip.js"></script>
+
+    <style type="text/css">
+
+@import url("css/styles.css");
+
+
+    </style>
+  </head>
+  
+<body>
+ 
+
+
+  
+<script>
+
+/*
+*
+POLYMAPS MAPPING SCRIPT
+The page uses polymaps to render a map from data stored in GEOjson format. The data is hosted in a separate json document and linked to within the script.
+For more information see http://polymaps.org/
+*
+*/
+
+ $(function() {
+$( "#tabs" ).tabs();
+});
+
+
+/*Mapping variables*/
+var po = org.polymaps;//creates a new instance of the map
+var json =po.geoJson().url("data/investorDataSmaller.json");//link to the data in json format
+var selectedInvestor = "";
+var strokeWidth = "1.0px";
+var numProperties = 0;//count of how
+var stillOwn = 0;
+var showAllInvestors = false;
+var firstLoad = true;
+
+/*Initializes base map. Center and zoom parameters set starting position and zoom level of map*/
+var map = po.map()
+    .container(document.body.appendChild(po.svg("svg")))
+    .center({lon: -122.24, lat:  37.8})
+    .zoom(13)
+    .add(po.interact());
+
+ $(function() {
+$("#intro-window").show();
+$("#shade").show();
+$( "#about" ).hide();
+ $("li").click(function () {
+    $(this).parent().children().removeClass("selected");
+    $(this).addClass("selected");
+	filterById(this.id);
+ });
+ $("li").mouseover(function () {
+  $(this).addClass("highlight");
+   }).mouseout(function() {$(this).removeClass("highlight");
+   });
+});
+
+
+/*Adds background map from cloudmade*/
+map.add(po.image()
+   /*.url(po.url("http://{S}tile.cloudmade.com"
+    + "/1a1b06b230af4efdbb989ea99e9841af" // http://cloudmade.com/register
+    + "/40501/256/{Z}/{X}/{Y}.png")
+    .hosts(["a.", "b.", "c.", ""])));*/
+	.url(po.url("http://{S}tile.cloudmade.com"
+    + "/1a1b06b230af4efdbb989ea99e9841af" // http://cloudmade.com/register
+   // + "/14098/256/{Z}/{X}/{Y}.png")
+	 + "/53124/256/{Z}/{X}/{Y}.png")
+    .hosts(["a.", "b.", "c.", ""])));
+
+/*Add points, stored in variable "json" to map.*/
+map.add(json
+    .tile(false)
+   	.on("load", load)//calls the function "load" when the map is loaded
+	.on("show", showJSON)//calls the function "show" whenever the map is re-loaded
+	.id("intervention"));
+
+map.add(po.compass()
+    .pan("none")
+	.position("top-right") );
+
+/*This function is called every time the map is reloaded*/
+function load(e) {
+	
+	$('#loadingProgress').show();
+	if(selectedInvestor!=""){
+		numProperties = 0;
+ 		for (var i = 0; i < e.features.length; i++) {
+			 var feature = e.features[i];
+			attachEventHandlers(feature);
+	 		filterPoints(p.Buyer0_Fin, p.Investor,  p.Buyer1_Typ, feature.element);
+		 }
+	}else {
+		firstLoad = false;
+	//numProperties = 0;
+	/*for each data point, do the following:*/
+  		for (var i = 0; i < e.features.length; i++) {
+	 		var feature = e.features[i];
+			attachEventHandlers(feature);
+			feature.element.setAttribute("r", "2");
+ 		 }
+	}
+	$('#loadingProgress').hide();
+}
+
+function attachEventHandlers(feature){
+	p = feature.data.properties;
+	feature.element.setAttribute('onmouseover', 'showInvestorData("' +p.Buyer0_Fin +  '", "' +p.Date0 + '","'+ p.Buyer1_Typ + '","'+ p.Date1 + '","'+ p.Investor  + '","'+ p.Address + '"," '+ p.APNsort+ '");');
+			feature.element.setAttribute('onmouseout', 'hideDetail();');
+			feature.element.onmousemove = detailFollow;
+}
+
+function showJSON(e) {
+	$('#loadingProgress').show();
+	numProperties = 0;
+	stillOwn = 0;
+	if(selectedInvestor!=""){
+ 		 for (var i = 0; i < e.features.length; i++) {
+			var feature = e.features[i];
+			p = feature.data.properties;
+			feature.element.setAttribute("r", "5");
+  			filterPoints(p.Buyer0_Fin, p.Investor,  p.Buyer1_Typ, feature.element)
+ 		 }
+  } else {
+  	for (var i = 0; i < e.features.length; i++) {
+	 	var feature = e.features[i];
+		feature.element.setAttribute("r", "5");
+  		feature.element.setAttribute("fill", "#FF3300");
+  	}
+  }
+  $('#loadingProgress').hide();
+}
+
+
+function showInvestorData( buyer0, date0, saleType, date1, investor, address, apn){
+	$('#tooltip').show();
+	selectedInvestor = buyer0;
+	numProperties = 0;
+	stillOwn = 0;
+	if(saleType == "Not Resold"){
+	 $('#tooltip').html("<b> " +address + "</b> (APN: "+apn+")</br>Foreclosed on " +date0+ " by " +buyer0 +"</br> Not resold as of 10/2011. ");
+	}
+	
+	else if(saleType == "Investor"){
+	 $('#tooltip').html("<b> " +address + "</b> (APN: "+apn+")</br>Foreclosed on " +date0+ " by " +buyer0 +"</br>Purchased by " + investor + " on "+date1+ ".");
+	}
+	
+	else {
+	 $('#tooltip').html("<b> " +address + "</b> (APN: "+apn+")</br>Foreclosed on " +date0+ " by " +buyer0 +"</br>Resold on " +date1+ ".");
+	}
+	//currentIntervention = prop;
+	 $('#tooltip').show();
+
+}
+
+
+/*the tooltip follows the mouse as it moves*/
+function detailFollow(e) {
+    $('#tooltip').css({
+        top: (e.pageY) + "px",
+        left: (e.pageX + 15) + "px"
+    });
+}
+
+
+/* Hides the tooltip when the mouse moves away.*/
+function hideDetail() {
+    $('#tooltip').hide();
+}
+
+/*If a certain data point has the same id has the currently selected datapoint, it is highlightes/*/
+function filterPoints(bank, investor, saleType, element){
+	if (selectedInvestor == bank) {
+		numProperties++;
+		element.setAttribute("r", "4");
+		element.setAttribute("fill", "#000");
+		
+		if(saleType=="Not Resold"){
+		stillOwn++;
+		element.setAttribute("fill", "#ff3300");
+		element.setAttribute("stroke-width",2);
+		element.setAttribute("stroke", "#FF3300");
+		}
+	} else if (selectedInvestor == investor){
+		numProperties++;
+		element.setAttribute("r", "4");
+		element.setAttribute("fill", "#000000");
+		element.setAttribute("stroke", "#000");
+		
+	} else if(selectedInvestor == 'allInvestors'){
+		if(investor != 'null'){
+			element.setAttribute("fill", "#000");
+			element.setAttribute("r", "4");
+			} else {
+				element.setAttribute("r", "0");
+			}
+		//}
+	} else {
+		element.setAttribute("fill", "#FF3300");
+		element.setAttribute("r", "0");
+	}
+
+
+}
+
+
+/*updates the selected bank or investor and reloads the data*/
+function filterById(id){
+	  $('#tooltip').hide();
+	selectedInvestor = id;
+	numProperties = 0;
+	stillOwn = 0;
+	json.reshow();
+	if(numProperties!=0){
+	$('#bottomBar').html(selectedInvestor + " foreclosed on  " + numProperties + " homes in Oakland </br>"+ selectedInvestor +" still owned "+ stillOwn + " of those homes as of October 2011.");
+} else {
+$('#bottomBar').html("");
+}
+}
+ function showAbout(){
+	 $( "#about" ).show('slow');
+	 $( "#shade" ).show('slow');
+	//$( "#intro-window" ).dialog( "open" );
+ }
+
+function closePopups(){
+	 $( "#about" ).hide();
+	  $( "#intro-window" ).hide();
+	   $( "#shade" ).hide();
+	//$( "#intro-window" ).dialog( "open" );
+ }
+
+
+
+     </script>
+      <div id="shade" onClick="closePopups()"> </div>  	
+    
+  <span id="copy">
+
+    &copy; 2010
+    <a href="http://www.cloudmade.com/">CloudMade</a>,
+    <a href="http://www.openstreetmap.org/">OpenStreetMap</a> contributors,
+    <a href="http://creativecommons.org/licenses/by-sa/2.0/">CCBYSA</a>. </a>
+  </span>
+  
+<div id="titleBar">Foreclosed Homes in Oakland, 2007 - 2011
+    <div id="bottomBar"></div>
+</div>
+
+<div id="about-button" onClick="showAbout()"> About </div>
+   
+<div id = "navMenu">
+	<div id="tabs">
+		<ul id="top-menu">
+			Filter by: 
+			<li><a href="#bank-menu">Bank</a></li>
+			<li id="allInvestors"><a href="#investor-menu">Investor</a></li>
+		</ul>
+		<div id="bank-menu">
+			<li  id ='DEUTSCHE BANK' class="noHighlight">1. DEUTSCHE BANK</li>
+    		<li id ='US BANK' class="noHighlight">2. US BANK</li>
+  			<li id='WELLS FARGO BANK' class="noHighlight">3. WELLS FARGO BANK</li>
+   			<li id='FANNIE MAE' class="noHighlight">4. FANNIE MAE</li>
+   			<li id='BANK OF AMERICA' class="noHighlight">5. BANK OF AMERICA </li>
+   			<li id='FREDDIE MAC' class="noHighlight">6. FREDDIE MAC </li>
+   			<li id='BANK OF NEW YORK' class="noHighlight">7. BANK OF NEW YORK </li>
+   			<li id='HSBC' class="noHighlight">8. HSBC </li>
+  			<li id='JP Morgan Chase' class="noHighlight">9. JP Morgan Chase</li>  
+		</div>
+		<div id="investor-menu">
+ 		  	<li  id ='COMMUNITY FUND LLC' class="noHighlight">1. COMMUNITY FUND LLC</li>
+    		<li id ='REO HOMES LLC' class="noHighlight">2. REO HOMES LLC</li>
+   			<li id='CRC Development LLC' class="noHighlight">3. CRC Development LLC</li>
+   			<li id='Wilson Young' class="noHighlight">4. Wilson Young</li>
+   			<li id='GOLDEN PINNACLE DEVELOPMENT CORPORATION' class="noHighlight">5. GOLDEN PINNACLE</li>
+   			<li id='MONETARY INVESTMENT LLC' class="noHighlight">6. MONETARY INVESTMENT LLC</li>
+   			<li id='LIQUIDATION PROPERTIES INC' class="noHighlight">7. LIQUIDATION PROPERTIES INC</li>
+  			<li id='KWONG DAVID' class="noHighlight">8. KWONG DAVID</li>
+  			<li id='GRP LOAN LLC' class="noHighlight">9. GRP LOAN LLC</li>
+		</div>
+   </div>
+</div>
+
+<div id="loadingProgress"></div>
+
+<div id="intro-window" class="popup"> <div onClick="closePopups()" class="closeClass" >X</div>
+    <p>  Foreclosed is a graphical tool built by Urban Strategies Council for our InfoAlamedaCounty Project.</p>
+
+ <p>This tool allows you to investigate the status of foreclosures by major banks and the major private investors who have acquired significant numbers of foreclosed homes in Oakland, California. </p>
+
+ <p>All data are public record and are produced with no legal guarantee of reliability.</p>
+ 
+</div>  
+
+<div id="about" class="popup" > <div onClick="closePopups()" class="closeClass" >X</div>
+    <p> This map was built by Urban Strategies Council to help inform our community about the patterns of bank foreclosure and private investment in the foreclosure market in Oakland.</p>
+
+<p>The data displayed on this map are based on Trustee Deeds and Grant Deeds recorded with the Alameda County Clerk Recorder between 2007 and October 2011, extracted for the City of Oakland.  These data are part of the public record and contain no confidential information.</p>
+
+<p>Our trustee deed data represent all completed foreclosures in this time period (i.e. all properties that went through the entire foreclosure process and were sold at trustee sale). </p>
+
+<p>Our research shows that overwhelmingly, properties that go through trustee sale and have a recorded trustee deed either reverted to the ownership of the foreclosing beneficiary (the bank or loan servicer), or were purchased by a third party at auction on the county courthouse steps. </p>
+
+<p>The grant deed dataset was used to identify instances where properties that reverted to bank-ownership as a result of foreclosure were subsequently sold to an investor or speculator.  Thus, the map displays the entity or individual who took ownership of a property as a result of foreclosure (i.e. bank, government-sponsored enterprise, investor), and further indicates if a property that reverted to bank-ownership was subsequently acquired by an investor or speculator. </p>
+
+<p>To view our comprehensive report on this phenomenon: Download PDF </p>
+        
+</div>
+<div id="tooltip" style="display:none;"></div>
+ 
+    
+
+
+</body>
+</html>
